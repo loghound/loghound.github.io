@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>California Reservoir Levels</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        canvas {
+            max-width: 800px;
+            margin: 0 auto;
+            display: block;
+        }
+        .info {
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>California Reservoir Levels</h1>
+    <canvas id="reservoirChart"></canvas>
+    <div class="info">
+        <p>Data is updated in real-time from California Data Exchange Center.</p>
+    </div>
+
+    <script>
+        // Fetch real-time reservoir data
+        async function fetchReservoirData() {
+            const apiUrl = "https://cdec.water.ca.gov/dynamicapp/QueryF?s=RES"; // Example API endpoint
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                // Process the data (assuming API returns an array of reservoirs)
+                const reservoirs = data.map(res => ({
+                    name: res.name,
+                    capacity: res.capacity_af, // Total capacity in acre-feet
+                    currentLevel: (res.storage_af / res.capacity_af) * 100, // Current level as a percentage
+                    historicalAverage: res.historical_avg_percent // Historical average percentage
+                }));
+
+                // Sort reservoirs by capacity (largest to smallest)
+                reservoirs.sort((a, b) => b.capacity - a.capacity);
+
+                // Update the chart with fetched data
+                updateChart(reservoirs);
+            } catch (error) {
+                console.error("Error fetching reservoir data:", error);
+            }
+        }
+
+        // Update the chart with new data
+        function updateChart(reservoirs) {
+            const labels = reservoirs.map(res => res.name);
+            const currentLevels = reservoirs.map(res => res.currentLevel);
+            const historicalAverages = reservoirs.map(res => res.historicalAverage);
+            const capacities = reservoirs.map(res => res.capacity.toLocaleString() + " AF");
+
+            const ctx = document.getElementById('reservoirChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Current Levels (%)',
+                            data: currentLevels,
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Historical Averages (%)',
+                            data: historicalAverages,
+                            backgroundColor: 'rgba(255, 159, 64, 0.6)',
+                            borderColor: 'rgba(255, 159, 64, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                afterLabel(tooltipItem) {
+                                    return `Capacity: ${capacities[tooltipItem.dataIndex]}`;
+                                }
+                            }
+                        },
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Reservoirs' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Percentage' } }
+                    }
+                }
+            });
+        }
+
+        // Fetch and display the reservoir data on page load
+        fetchReservoirData();
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monte Carlo Return Simulation</title>
+  <!-- Bootstrap CSS for pleasant styling -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.6.2/css/bootstrap.min.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Papa Parse to load CSV data from the Google Sheet -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <style>
+    body {
+      background: #f8f9fa;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+    .card {
+      margin-top: 20px;
+    }
+    #chartContainer {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="text-center">Monte Carlo Return Simulation</h1>
+
+    <div class="card">
+      <div class="card-body">
+        <form id="simulationForm">
+          <div class="form-group">
+            <label for="startingMoney">Starting Money ($):</label>
+            <input type="number" class="form-control" id="startingMoney" value="100000">
+          </div>
+          <div class="form-group">
+            <label for="cashAlloc">Cash Allocation (%):</label>
+            <input type="number" class="form-control" id="cashAlloc" value="10">
+          </div>
+          <div class="form-group">
+            <label for="stocksAlloc">Stocks Allocation (%):</label>
+            <input type="number" class="form-control" id="stocksAlloc" value="60">
+          </div>
+          <div class="form-group">
+            <label for="bondsAlloc">Bonds Allocation (%):</label>
+            <input type="number" class="form-control" id="bondsAlloc" value="30">
+          </div>
+          <div class="form-group">
+            <label for="simYears">Number of Years:</label>
+            <input type="number" class="form-control" id="simYears" value="30">
+          </div>
+          <button type="submit" class="btn btn-primary">Run Simulation</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="chartContainer">
+      <canvas id="resultChart"></canvas>
+    </div>
+
+    <div class="mt-3">
+      <h3>Simulation Results</h3>
+      <div id="resultsText"></div>
+    </div>
+  </div>
+
+  <script>
+    // URL to fetch CSV data; note the export parameters
+    const csvUrl = 'https://loghound.github.io/montecarlo/data.csv';
+
+    let historicalData = [];  // This will hold the data loaded at startup
+
+    // Load the CSV data using Papa Parse
+    Papa.parse(csvUrl, {
+      download: true,
+      header: true,
+      dynamicTyping: true,
+      complete: function(results) {
+        historicalData = results.data;
+        console.log('CSV data loaded:', historicalData);
+      }
+    });
+
+    // The Monte Carlo simulation function:
+    function runSimulation(startingMoney, cashAlloc, stocksAlloc, bondsAlloc, numYears, iterations = 1000) {
+      let results = [];
+
+      // Convert allocation percentages to decimals
+      let cashPerc = cashAlloc / 100;
+      let stocksPerc = stocksAlloc / 100;
+      let bondsPerc = bondsAlloc / 100;
+
+      // In this example, we assume your data contains columns
+      // named 'Cash', 'SPX-TR' (for stocks), and '10Y BM' (for bonds).
+      // Adjust these names based on your actual CSV header.
+      let validData = historicalData.filter(row => row['Cash'] && row['SPX-TR'] && row['10Y BM']);
+
+      // If no valid data is found (for testing) create random sample returns.
+      if (validData.length === 0) {
+        validData = Array.from({length: 100}, () => ({
+          'Cash': 1 + Math.random() * 0.02,    // 0% to 2% growth per period
+          'SPX-TR': 1 + Math.random() * 0.1,     // 0% to 10% growth per period
+          '10Y BM': 1 + Math.random() * 0.05     // 0% to 5% growth per period
+        }));
+      }
+
+      // Run the simulation for the specified number of iterations
+      for (let i = 0; i < iterations; i++) {
+        let portfolioValue = startingMoney;
+
+        for (let year = 0; year < numYears; year++) {
+          // Randomly select one historical period (a "year")
+          let randomRow = validData[Math.floor(Math.random() * validData.length)];
+          let cashReturn = randomRow['Cash'];
+          let stockReturn = randomRow['SPX-TR'];
+          let bondReturn = randomRow['10Y BM'];
+
+          // Calculate the new portfolio value based on allocated growth rates
+          portfolioValue =
+            (portfolioValue * cashPerc * cashReturn) +
+            (portfolioValue * stocksPerc * stockReturn) +
+            (portfolioValue * bondsPerc * bondReturn);
+        }
+        results.push(portfolioValue);
+      }
+      return results;
+    }
+
+    // Utility function to calculate basic statistics on the simulation results.
+    function getStats(results) {
+      results.sort((a, b) => a - b);
+      let median = results[Math.floor(results.length / 2)];
+      let mean = results.reduce((sum, val) => sum + val, 0) / results.length;
+      let min = results[0];
+      let max = results[results.length - 1];
+      return { median, mean, min, max };
+    }
+
+    // Handle form submission and run the simulation
+    document.getElementById('simulationForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      let startingMoney = parseFloat(document.getElementById('startingMoney').value);
+      let cashAlloc = parseFloat(document.getElementById('cashAlloc').value);
+      let stocksAlloc = parseFloat(document.getElementById('stocksAlloc').value);
+      let bondsAlloc = parseFloat(document.getElementById('bondsAlloc').value);
+      let numYears = parseInt(document.getElementById('simYears').value);
+
+      let simResults = runSimulation(startingMoney, cashAlloc, stocksAlloc, bondsAlloc, numYears);
+      let stats = getStats(simResults);
+
+      // Show textual simulation results
+      document.getElementById('resultsText').innerHTML =
+        `<p><strong>Mean:</strong> $${stats.mean.toFixed(2)}</p>
+         <p><strong>Median:</strong> $${stats.median.toFixed(2)}</p>
+         <p><strong>Minimum:</strong> $${stats.min.toFixed(2)}</p>
+         <p><strong>Maximum:</strong> $${stats.max.toFixed(2)}</p>`;
+
+      // Create a histogram of the simulation outcomes
+      let bins = {};
+      let binCount = 20;
+      let binSize = (stats.max - stats.min) / binCount;
+      for (let value of simResults) {
+        let binIndex = Math.floor((value - stats.min) / binSize);
+        bins[binIndex] = (bins[binIndex] || 0) + 1;
+      }
+      let labels = [];
+      let data = [];
+      for (let i = 0; i < binCount; i++) {
+        let lower = stats.min + i * binSize;
+        let upper = lower + binSize;
+        labels.push(`$${lower.toFixed(0)} - $${upper.toFixed(0)}`);
+        data.push(bins[i] || 0);
+      }
+
+      // Render the chart using Chart.js
+      let ctx = document.getElementById('resultChart').getContext('2d');
+      if (window.myChart) {
+        window.myChart.destroy();
+      }
+      window.myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Frequency',
+            data: data,
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Random Variables Combination Visualization</title>
+  <!-- Plotly for interactive plotting -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f7f7f7;
+    }
+    h1, h3 {
+      text-align: center;
+      color: #333;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .control-group {
+      margin: 20px auto;
+      padding: 10px;
+      text-align: center;
+      border-top: 1px solid #eee;
+    }
+    .control-group label {
+      margin: 0 10px;
+      font-size: 16px;
+    }
+    .slider-container {
+      margin: 20px;
+      text-align: center;
+    }
+    .plot-container {
+      margin: 20px auto;
+    }
+    #stats {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 16px;
+    }
+    input[type="number"] {
+      width: 80px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Random Variables Combination Visualization</h1>
+    
+    <!-- Sample Size Control -->
+    <div class="slider-container">
+      <label for="sampleSize">Sample Size (N): <span id="displayN"></span></label>
+      <br>
+      <input type="range" id="sampleSize" min="2" max="1000" value="50">
+    </div>
+    
+    <!-- Normal Distribution Parameters -->
+    <div class="control-group">
+      <h3>Normal Distribution Parameters</h3>
+      <label>
+        Mean:
+        <input id="normalMean" type="number" value="0" step="0.1">
+      </label>
+      <label>
+        Standard Deviation:
+        <input id="normalStd" type="number" value="1" step="0.1">
+      </label>
+    </div>
+    
+    <!-- Uniform Distribution Parameters -->
+    <div class="control-group">
+      <h3>Uniform Distribution Parameters</h3>
+      <label>
+        Lower:
+        <input id="uniformLower" type="number" value="0" step="0.1">
+      </label>
+      <label>
+        Upper:
+        <input id="uniformUpper" type="number" value="1" step="0.1">
+      </label>
+    </div>
+    
+    <!-- Exponential Distribution Parameters -->
+    <div class="control-group">
+      <h3>Exponential Distribution Parameters</h3>
+      <label>
+        Lambda:
+        <input id="expLambda" type="number" value="1" step="0.1" min="0.1">
+      </label>
+    </div>
+    
+    <!-- Plots for input and output variables -->
+    <div class="plot-container">
+      <div id="inputPlot"></div>
+    </div>
+    <div class="plot-container">
+      <div id="outputPlot"></div>
+    </div>
+    
+    <!-- Display Statistics -->
+    <div id="stats"></div>
+  </div>
+
+  <script>
+    // --- Random Number Generators ---
+
+    // Generate a standard normal variable using the Box-Muller transform.
+    function generateStandardNormal() {
+      let u = 0, v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+
+    // Generate a normal variable with specified mean and standard deviation.
+    function generateNormal(mean, std) {
+      return mean + std * generateStandardNormal();
+    }
+
+    // Generate a uniform variable between lower and upper.
+    function generateUniform(lower, upper) {
+      return lower + (upper - lower) * Math.random();
+    }
+
+    // Generate an exponential variable with rate lambda.
+    function generateExponential(lambda) {
+      let u = 0;
+      while (u === 0) u = Math.random();
+      return -Math.log(u) / lambda;
+    }
+
+    // --- Kernel Density Estimation Functions ---
+
+    // Gaussian kernel function.
+    function gaussianKernel(u) {
+      return Math.exp(-0.5 * u * u) / Math.sqrt(2 * Math.PI);
+    }
+
+    // Compute the bandwidth using Silverman's rule-of-thumb.
+    function computeBandwidth(data) {
+      let n = data.length;
+      let mean = data.reduce((a, b) => a + b, 0) / n;
+      let s = Math.sqrt(data.map(x => (x - mean) ** 2).reduce((a, b) => a + b, 0) / n);
+      return 1.06 * s * Math.pow(n, -1/5);
+    }
+
+    // Evaluate the KDE for given data at specified xValues.
+    function kernelDensityEstimation(data, xValues) {
+      let n = data.length;
+      let bandwidth = computeBandwidth(data);
+      let densities = [];
+      for (let x of xValues) {
+        let sum = 0;
+        for (let xi of data) {
+          sum += gaussianKernel((x - xi) / bandwidth);
+        }
+        densities.push(sum / (n * bandwidth));
+      }
+      return densities;
+    }
+
+    // --- Quantile and Bootstrap Confidence Interval ---
+
+    // Calculate the quantile for data at probability q.
+    function quantile(data, q) {
+      let sorted = data.slice().sort((a, b) => a - b);
+      let pos = (sorted.length - 1) * q;
+      let base = Math.floor(pos);
+      let rest = pos - base;
+      if (sorted[base + 1] !== undefined)
+        return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+      else
+        return sorted[base];
+    }
+
+    // Bootstrap the confidence interval (95%) for the percentile estimate.
+    function bootstrapCI(data, percentile, iterations = 1000) {
+      let n = data.length;
+      let estimates = [];
+      for (let i = 0; i < iterations; i++) {
+        let sample = [];
+        for (let j = 0; j < n; j++) {
+          sample.push(data[Math.floor(Math.random() * n)]);
+        }
+        estimates.push(quantile(sample, percentile));
+      }
+      estimates.sort((a, b) => a - b);
+      let lower = quantile(estimates, 0.025);
+      let upper = quantile(estimates, 0.975);
+      return { lower: lower, upper: upper };
+    }
+
+    // --- Main Update Function ---
+    function updatePlots() {
+      // Read sample size.
+      let N = parseInt(document.getElementById("sampleSize").value);
+      document.getElementById("displayN").innerText = N;
+      
+      // Read distribution parameters.
+      let normalMean = parseFloat(document.getElementById("normalMean").value);
+      let normalStd  = parseFloat(document.getElementById("normalStd").value);
+      
+      let uniformLower = parseFloat(document.getElementById("uniformLower").value);
+      let uniformUpper = parseFloat(document.getElementById("uniformUpper").value);
+      
+      let expLambda = parseFloat(document.getElementById("expLambda").value);
+
+      // Generate sample data for each variable.
+      let dataNormal = [];
+      let dataUniform = [];
+      let dataExponential = [];
+      for (let i = 0; i < N; i++) {
+        dataNormal.push(generateNormal(normalMean, normalStd));
+        dataUniform.push(generateUniform(uniformLower, uniformUpper));
+        dataExponential.push(generateExponential(expLambda));
+      }
+
+      // Combine the variables (here using summation).
+      let dataOutput = [];
+      for (let i = 0; i < N; i++) {
+        dataOutput.push(dataNormal[i] + dataUniform[i] + dataExponential[i]);
+      }
+
+      // Helper function to create a grid for KDE evaluation.
+      function getGrid(data) {
+        let min = Math.min(...data);
+        let max = Math.max(...data);
+        let padding = (max - min) * 0.1;
+        let grid = [];
+        let start = min - padding;
+        let end = max + padding;
+        let step = (end - start) / 100;
+        for (let x = start; x <= end; x += step) grid.push(x);
+        return grid;
+      }
+      
+      // Create grids.
+      let gridNormal  = getGrid(dataNormal);
+      let gridUniform = getGrid(dataUniform);
+      let gridExp     = getGrid(dataExponential);
+      let gridOutput  = getGrid(dataOutput);
+      
+      // Compute KDEs.
+      let kdeNormal  = kernelDensityEstimation(dataNormal, gridNormal);
+      let kdeUniform = kernelDensityEstimation(dataUniform, gridUniform);
+      let kdeExp     = kernelDensityEstimation(dataExponential, gridExp);
+      let kdeOutput  = kernelDensityEstimation(dataOutput, gridOutput);
+      
+      // --- Plot the Input PDFs ---
+      let traceNormal = {
+        x: gridNormal,
+        y: kdeNormal,
+        mode: 'lines',
+        name: 'Normal',
+        line: { color: 'blue' }
+      };
+      let traceUniform = {
+        x: gridUniform,
+        y: kdeUniform,
+        mode: 'lines',
+        name: 'Uniform',
+        line: { color: 'green' }
+      };
+      let traceExp = {
+        x: gridExp,
+        y: kdeExp,
+        mode: 'lines',
+        name: 'Exponential',
+        line: { color: 'red' }
+      };
+      let layoutInput = {
+        title: 'Input Variables PDFs (KDE)',
+        xaxis: { title: 'Value' },
+        yaxis: { title: 'Density' },
+        paper_bgcolor: '#f7f7f7'
+      };
+      Plotly.newPlot('inputPlot', [traceNormal, traceUniform, traceExp], layoutInput);
+      
+      // --- Plot the Output PDF ---
+      let traceOutput = {
+        x: gridOutput,
+        y: kdeOutput,
+        mode: 'lines',
+        name: 'Output (Sum)',
+        line: { color: 'purple' }
+      };
+
+      // Compute the 95th Percentile and its Bootstrap Confidence Interval.
+      let percentile95 = quantile(dataOutput, 0.95);
+      let ci = bootstrapCI(dataOutput, 0.95, 1000);
+      
+      // Create a vertical line for the 95th Percentile.
+      let percentileLine = {
+        x: [percentile95, percentile95],
+        y: [0, Math.max(...kdeOutput)],
+        mode: 'lines',
+        name: '95th Percentile',
+        line: { color: 'black', dash: 'dash' }
+      };
+
+      let layoutOutput = {
+        title: 'Output Variable PDF (KDE)',
+        xaxis: { title: 'Value' },
+        yaxis: { title: 'Density' },
+        paper_bgcolor: '#f7f7f7'
+      };
+      Plotly.newPlot('outputPlot', [traceOutput, percentileLine], layoutOutput);
+      
+      // Display statistics.
+      document.getElementById("stats").innerHTML = `
+        <strong>95th Percentile Estimate:</strong> ${percentile95.toFixed(3)}<br>
+        <strong>95% Confidence Interval:</strong> [${ci.lower.toFixed(3)}, ${ci.upper.toFixed(3)}]
+      `;
+    }
+    
+    // --- Set up event listeners ---
+    document.getElementById("sampleSize").addEventListener("input", updatePlots);
+    document.getElementById("normalMean").addEventListener("input", updatePlots);
+    document.getElementById("normalStd").addEventListener("input", updatePlots);
+    document.getElementById("uniformLower").addEventListener("input", updatePlots);
+    document.getElementById("uniformUpper").addEventListener("input", updatePlots);
+    document.getElementById("expLambda").addEventListener("input", updatePlots);
+
+    // Initial plotting call.
+    updatePlots();
+  </script>
+</body>
+</html>

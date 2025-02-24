@@ -114,6 +114,7 @@
         let portfolioValue = startingMoney;
 
         for (let year = 0; year < numYears; year++) {
+          for (let month = 0; month < 12; month++) {
           // Randomly select one historical period (a "year")
           let randomRow = validData[Math.floor(Math.random() * validData.length)];
           let cashReturn = 1+ randomRow['Cash'].replace('%', '') / 100;
@@ -125,8 +126,9 @@
             (portfolioValue * cashPerc * cashReturn) +
             (portfolioValue * stocksPerc * stockReturn) +
             (portfolioValue * bondsPerc * bondReturn);
-        }
+          
         results.push(portfolioValue);
+          }
       }
       return results;
     }

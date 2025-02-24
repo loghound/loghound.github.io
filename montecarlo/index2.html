@@ -103,9 +103,9 @@
       // If no valid data is found (for testing) create random sample returns.
       if (validData.length === 0) {
         validData = Array.from({length: 100}, () => ({
-          'Cash': 1 + Math.random() * 0.02,    // 0% to 2% growth per period
-          'SPX-TR': 1 + Math.random() * 0.1,     // 0% to 10% growth per period
-          '10Y BM': 1 + Math.random() * 0.05     // 0% to 5% growth per period
+          'Cash': Math.random() * 0.02,    // 0% to 2% growth per period
+          'SPX-TR': Math.random() * 0.1,     // 0% to 10% growth per period
+          '10Y BM': Math.random() * 0.05     // 0% to 5% growth per period
         }));
       }
 
@@ -116,9 +116,9 @@
         for (let year = 0; year < numYears; year++) {
           // Randomly select one historical period (a "year")
           let randomRow = validData[Math.floor(Math.random() * validData.length)];
-          let cashReturn = randomRow['Cash'];
-          let stockReturn = randomRow['SPX-TR'];
-          let bondReturn = randomRow['10Y BM'];
+          let cashReturn = 1+ randomRow['Cash'].replace('%', '') / 100;
+          let stockReturn = randomRow['SPX-TR'].replace('%', '') / 100;
+          let bondReturn = randomRow['10Y BM'].replace('%', '') / 100;
 
           // Calculate the new portfolio value based on allocated growth rates
           portfolioValue =

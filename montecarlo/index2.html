@@ -117,8 +117,8 @@
           // Randomly select one historical period (a "year")
           let randomRow = validData[Math.floor(Math.random() * validData.length)];
           let cashReturn = 1+ randomRow['Cash'].replace('%', '') / 100;
-          let stockReturn = randomRow['SPX-TR'].replace('%', '') / 100;
-          let bondReturn = randomRow['10Y BM'].replace('%', '') / 100;
+          let stockReturn = 1+randomRow['SPX-TR'].replace('%', '') / 100;
+          let bondReturn = 1+randomRow['10Y BM'].replace('%', '') / 100;
 
           // Calculate the new portfolio value based on allocated growth rates
           portfolioValue =

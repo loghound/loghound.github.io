@@ -18,6 +18,9 @@
 <body>
   <div class="container">
     <h1 class="mb-4">Workout Dashboard</h1>
+    <div class="mb-3">
+        <button id="toggleView" class="btn btn-primary">Switch to Heatmap</button>
+    </div>
     <div id="chart"></div>
   </div>
 
@@ -25,53 +28,94 @@
   <script src="https://d3js.org/d3.v5.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-3.0.0.min.js"></script>
   <script>
+    let currentView = 'scatter';
+    let chartData;
+
     // Load the CSV file dynamically
     d3.csv("workout.csv").then(function(data) {
-      // Log the data for debugging purposes
-      console.log("CSV Data:", data);
-      
-      // Assume the CSV contains at least two columns: Date and Exercise.
-      // Convert the Date strings into JavaScript Date objects.
-      data.forEach(function(d) {
-        d.Date = new Date(d.creationDate.split(' ').slice(0, 2).join('T'));
-      });
+        chartData = data;
+        // Log the data for debugging purposes
+        console.log("CSV Data:", data);
+        
+        data.forEach(function(d) {
+            d.Date = new Date(d.creationDate.split(' ').slice(0, 2).join(' '));
+        });
 
-      // Create a scatter trace where each point represents a workout.
-      // X-axis is the workout date and Y-axis is the workout type.
-      var trace = {
-        x: data.map(d => d.Date),
-        y: data.map(d => d.workoutActivityType),
-        mode: 'markers',
-        type: 'scatter',
-        marker: {
-          size: 10,
-          opacity: 0.7,
-          color: '#007bff'
-        },
-        // Custom hover text showing the date and exercise type
-        text: data.map(d => "Date: " + d.Date.toLocaleDateString() + "<br>Exercise: " + d.Exercise),
-        hoverinfo: 'text'
-      };
+        createScatterPlot(data);
 
-      // Define the layout with a title and axis labels.
-      var layout = {
-        title: 'Workout Types Over Time',
-        xaxis: {
-          title: 'Date',
-          type: 'date'
-        },
-        yaxis: {
-          title: 'Workout Type',
-          automargin: true
-        },
-        hovermode: 'closest'
-      };
-
-      // Render the interactive Plotly chart inside the "chart" div.
-      Plotly.newPlot('chart', [trace], layout);
+        document.getElementById('toggleView').addEventListener('click', function() {
+            if (currentView === 'scatter') {
+                this.textContent = 'Switch to Scatter';
+                currentView = 'heatmap';
+                createHeatmap(chartData);
+            } else {
+                this.textContent = 'Switch to Heatmap';
+                currentView = 'scatter';
+                createScatterPlot(chartData);
+            }
+        });
     }).catch(function(error) {
-      console.error("Error loading CSV file:", error);
+        console.error("Error loading CSV file:", error);
     });
+
+    function createScatterPlot(data) {
+        var trace = {
+            x: data.map(d => d.Date),
+            y: data.map(d => d.workoutActivityType),
+            mode: 'markers',
+            type: 'scatter',
+            marker: {
+                size: 10,
+                opacity: 0.7,
+                color: '#007bff'
+            },
+            text: data.map(d => "Date: " + d.Date.toLocaleDateString() + "<br>Type: " + d.workoutActivityType),
+            hoverinfo: 'text'
+        };
+
+        var layout = {
+            title: 'Workout Types Over Time',
+            xaxis: { title: 'Date', type: 'date' },
+            yaxis: { title: 'Workout Type', automargin: true },
+            hovermode: 'closest'
+        };
+
+        Plotly.newPlot('chart', [trace], layout);
+    }
+
+    function createHeatmap(data) {
+        // Group data by month and workout type
+        let workoutCounts = {};
+        let workoutTypes = [...new Set(data.map(d => d.workoutActivityType))];
+        
+        data.forEach(d => {
+            let monthYear = d.Date.toISOString().slice(0, 7); // Format: YYYY-MM
+            workoutCounts[monthYear] = workoutCounts[monthYear] || {};
+            workoutCounts[monthYear][d.workoutActivityType] = (workoutCounts[monthYear][d.workoutActivityType] || 0) + 1;
+        });
+
+        let months = Object.keys(workoutCounts).sort();
+        let z = workoutTypes.map(type => 
+            months.map(month => workoutCounts[month][type] || 0)
+        );
+
+        var heatmapTrace = {
+            z: z,
+            x: months,
+            y: workoutTypes,
+            type: 'heatmap',
+            colorscale: 'Viridis',
+            hoverongaps: false
+        };
+
+        var layout = {
+            title: 'Workout Frequency Heatmap',
+            xaxis: { title: 'Month' },
+            yaxis: { title: 'Workout Type', automargin: true }
+        };
+
+        Plotly.newPlot('chart', [heatmapTrace], layout);
+    }
   </script>
 </body>
 </html>

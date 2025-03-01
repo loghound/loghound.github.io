@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workout Tracker</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .chart {
+            margin-top: 20px;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        select, button {
+            padding: 5px 10px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Workout Tracker</h1>
+        <div class="controls">
+            <select id="activityType">
+                <option value="all">All Activities</option>
+            </select>
+            <select id="timeRange">
+                <option value="all">All Time</option>
+                <option value="year">Last Year</option>
+                <option value="month">Last Month</option>
+                <option value="week">Last Week</option>
+            </select>
+            <button id="updateChart">Update Chart</button>
+        </div>
+        <div id="chart" class="chart"></div>
+    </div>
+
+    <script>
+        let workoutData;
+
+        d3.csv('Sheet-1-Workout.csv').then(data => {
+            workoutData = data;
+            populateActivityTypes();
+            updateChart();
+        });
+
+        function populateActivityTypes() {
+            const activityTypes = [...new Set(workoutData.map(d => d.workoutActivityType))];
+            const select = document.getElementById('activityType');
+            activityTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                select.appendChild(option);
+            });
+        }
+
+        function updateChart() {
+            const activityType = document.getElementById('activityType').value;
+            const timeRange = document.getElementById('timeRange').value;
+
+            let filteredData = workoutData;
+
+            if (activityType !== 'all') {
+                filteredData = filteredData.filter(d => d.workoutActivityType === activityType);
+            }
+
+            const now = new Date();
+            if (timeRange === 'year') {
+                const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+                filteredData = filteredData.filter(d => new Date(d.startDate) >= oneYearAgo);
+            } else if (timeRange === 'month') {
+                const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+                filteredData = filteredData.filter(d => new Date(d.startDate) >= oneMonthAgo);
+            } else if (timeRange === 'week') {
+                const oneWeekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+                filteredData = filteredData.filter(d => new Date(d.startDate) >= oneWeekAgo);
+            }
+
+            const trace = {
+                x: filteredData.map(d => d.startDate),
+                y: filteredData.map(d => parseFloat(d.duration)),
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Duration (minutes)',
+                hovertemplate: '%{x}<br>Duration: %{y:.2f} minutes<br>Activity: %{text}<extra></extra>',
+                text: filteredData.map(d => d.workoutActivityType)
+            };
+
+            const layout = {
+                title: 'Workout Duration Over Time',
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Duration (minutes)' }
+            };
+
+            Plotly.newPlot('chart', [trace], layout);
+        }
+
+        document.getElementById('updateChart').addEventListener('click', updateChart);
+    </script>
+</body>
+</html>

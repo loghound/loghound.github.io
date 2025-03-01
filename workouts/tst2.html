@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workout Data Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #007BFF;
+        }
+        #controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        #chart-container {
+            width: 80%;
+            margin: auto;
+        }
+        select, button {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            cursor: pointer;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Workout Trends</h1>
+
+    <div id="controls">
+        <label for="activityType">Filter by Activity Type:</label>
+        <select id="activityType">
+            <option value="All">All</option>
+            <!-- Options will be dynamically added here -->
+        </select>
+        <button id="resetFilter">Reset Filter</button>
+    </div>
+
+    <div id="chart-container">
+        <canvas id="workoutChart"></canvas>
+    </div>
+
+    <script>
+        const csvData = `sourceName,sourceVersion,device,creationDate,startDate,endDate,workoutActivityType,duration,durationUnit,Year,totalDistanceUnit,totalEnergyBurned,totalEnergyBurnedUnit
+John’s Apple Watch,4.0,,2017-12-27 10:37:04 -0800,2017-12-27 09:50:21 -0800,2017-12-27 10:37:03 -0800,Walking,46.69885600010550,min,2017,,,
+John’s Apple Watch,4.2,,2017-12-29 09:51:44 -0800,2017-12-29 08:26:54 -0800,2017-12-29 09:51:42 -0800,Walking,84.79947399993740,min,2017,,,
+John’s Apple Watch,4.2,,2017-12-29 17:25:20 -0800,2017-12-29 17:04:59 -0800,2017-12-29 17:25:19 -0800,Other,20.33802643418310,min,2017,,,
+John’s Apple Watch,4.2,,2017-12-30 10:12:20 -0800,2017-12-30 08:44:33 -0800,2017-12-30 10:12:19 -0800,Walking,32.61100356678170,min,2017,,,
+John’s Apple Watch,4.2,,2017-12-30 16:50:34 -0800,2017-12-30 16:00:45 -0800,2017-12-30 16:50:33 -0800,Walking,49.79877695043880,min,2017,,,
+John’s Apple Watch,4.2,,2017-12-31 10:08:04 -0800,2017-12-31 08:58:57 -0800,2017-12-31 10:08:03 -0800,Walking,44.40983571708200,min,2017,,,
+John’s Apple Watch,4.2,,2018-01-01 11:09:35 -0800,2018-01-01 10:00:32 -0800,2018-01-01 11:09:34 -0800,Walking,55.90043948292730,min,2018,,,
+John’s Apple Watch,4.2,,2018-01-03 08:09:11 -0800,2018-01-03 07:34:21 -0800,2018-01-03 08:09:10 -0800,Walking,34.81828330059850,min,2018,,,
+John’s Apple Watch,4.2,,2018-01-05 09:06:47 -0800,2018-01-05 07:33:47 -0800,2018-01-05 09:06:45 -0800,Walking,68.64783223370710,min,2018,,,
+John’s Apple Watch,4.2,,2018-01-06 12:24:33 -0800,2018-01-06 09:06:41 -0800,2018-01-06 12:24:31 -0800,Walking,197.8353408654530,min,2018,,,
+John’s Apple Watch,4.2,,2018-01-07 10:35:59 -0800,2018-01-07 09:03:04 -0800,2018-01-07 10:35:57 -0800,Walking,92.8934383670489,min,2018,,,
+John’s Apple Watch,4.2,,2018-01-10 12:16:49 -0800,2018-01-10 11:30:11 -0800,2018-01-10 12:16:48 -0800,HighIntensityIntervalTraining,46.61812286774320,min,2018,,,
+John’s Apple Watch,4.2,,2018-01-13 09:48:15 -0800,2018-01-13 08:21:41 -0800,2018-01-13 09:48:13 -0800,Walking,86.53498899936680,min,2018,,,
+John’s Apple Watch,4.2,,2018-01-15 10:00:55 -0800,2018-01-15 09:06:37 -0800,2018-01-15 10:00:53 -0800,Walking,54.28041056791940,min,2018,,,
+John’s Apple Watch,4.2,,2018-01-26 22:54:46 -0800,2018-01-26 22:08:49 -0800,2018-01-26 22:54:45 -0800,Walking,45.92904979983970,min,2018,,,
+John’s Apple Watch,4.2,,2018-01-27 22:16:55 -0800,2018-01-27 21:44:21 -0800,2018-01-27 22:16:54 -0800,Elliptical,32.55558541615800,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-03 16:24:26 -0800,2018-02-03 15:21:38 -0800,2018-02-03 16:24:25 -0800,Walking,62.77699991663300,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-04 11:34:34 -0800,2018-02-04 10:18:51 -0800,2018-02-04 11:34:33 -0800,Walking,75.70272303223610,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-05 11:18:16 -0800,2018-02-05 11:15:15 -0800,2018-02-05 11:18:15 -0800,Running,3.004367333650590,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-05 11:59:58 -0800,2018-02-05 11:29:32 -0800,2018-02-05 11:59:58 -0800,HighIntensityIntervalTraining,19.14007558226590,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-06 11:29:01 -0800,2018-02-06 11:26:50 -0800,2018-02-06 11:29:00 -0800,Running,2.162106583515800,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-06 12:05:19 -0800,2018-02-06 11:30:08 -0800,2018-02-06 12:05:19 -0800,HighIntensityIntervalTraining,35.17358224987980,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-07 12:08:03 -0800,2018-02-07 11:28:45 -0800,2018-02-07 12:08:02 -0800,Running,39.2745468000571,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-08 12:08:41 -0800,2018-02-08 11:28:05 -0800,2018-02-08 12:08:40 -0800,Running,40.57213889956470,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-10 09:56:44 -0800,2018-02-10 08:23:14 -0800,2018-02-10 09:56:42 -0800,Walking,93.4644206504027,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-10 13:31:11 -0800,2018-02-10 12:53:14 -0800,2018-02-10 13:31:10 -0800,Walking,37.93389723300930,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-12 11:28:54 -0800,2018-02-12 11:26:07 -0800,2018-02-12 11:28:53 -0800,Running,2.772153049707410,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-12 12:00:40 -0800,2018-02-12 11:29:06 -0800,2018-02-12 12:00:39 -0800,HighIntensityIntervalTraining,31.55185293356580,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-15 12:39:21 -0800,2018-02-15 11:37:28 -0800,2018-02-15 12:39:20 -0800,Running,61.87211595177650,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-18 12:13:48 -0800,2018-02-18 11:19:26 -0800,2018-02-18 12:13:47 -0800,Walking,54.34721519947050,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-20 11:31:58 -0800,2018-02-20 11:26:54 -0800,2018-02-20 11:31:57 -0800,Running,5.063487549622850,min,2018,,,
+John’s Apple Watch,4.2.2,,2018-02-20 12:10:01 -0800,2018-02-20 11:32:17 -0800,2018-02-20 12:10:00 -0800,Other,37.71422204971310,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-02-21 11:31:25 -0800,2018-02-21 11:28:23 -0800,2018-02-21 11:31:25 -0800,Running,3.027948615948360,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-02-21 12:02:40 -0800,2018-02-21 11:31:37 -0800,2018-02-21 12:02:40 -0800,HighIntensityIntervalTraining,31.05442159970600,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-02-24 09:53:48 -0800,2018-02-24 08:43:24 -0800,2018-02-24 09:53:47 -0800,Walking,70.3911455988884,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-01 12:04:44 -0800,2018-03-01 11:27:52 -0800,2018-03-01 12:04:43 -0800,Running,36.83899741768840,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-03 09:30:37 -0800,2018-03-03 09:02:30 -0800,2018-03-03 09:30:36 -0800,Walking,28.10132871667540,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-03 10:09:42 -0800,2018-03-03 09:44:22 -0800,2018-03-03 10:09:41 -0800,Walking,25.31653993328410,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-04 10:51:00 -0800,2018-03-04 09:31:12 -0800,2018-03-04 10:50:58 -0800,Walking,79.76528736551600,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-05 11:29:12 -0800,2018-03-05 11:26:20 -0800,2018-03-05 11:29:11 -0800,Running,2.845270383358000,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-05 13:18:44 -0800,2018-03-05 11:33:51 -0800,2018-03-05 13:18:43 -0800,HighIntensityIntervalTraining,104.8620805501940,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-06 11:30:59 -0800,2018-03-06 11:28:38 -0800,2018-03-06 11:30:58 -0800,Running,2.262842283646270,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-06 12:37:01 -0800,2018-03-06 11:30:59 -0800,2018-03-06 12:36:59 -0800,HighIntensityIntervalTraining,65.99984768430390,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-07 12:25:22 -0800,2018-03-07 11:23:54 -0800,2018-03-07 12:25:20 -0800,Running,61.44254549940430,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-08 13:18:05 -0800,2018-03-08 11:26:41 -0800,2018-03-08 13:18:03 -0800,Running,111.3596126159030,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-12 13:01:35 -0800,2018-03-12 10:28:25 -0800,2018-03-12 13:01:33 -0800,Running,11.30628906687100,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-13 10:51:03 -0800,2018-03-13 10:26:02 -0800,2018-03-13 10:51:02 -0800,Running,13.49460600018500,min,2018,,,
+John’s Apple Watch,4.2.3,,2018-03-13 10:59:38 -0800,2018-03-13 10:51:15 -0800,2018-03-13 10:59:37 -0800,HighIntensityIntervalTraining,8.365714716911320,min,2018,,,`; // Your CSV data here
+
+        const activityTypeSelect = document.getElementById('activityType');
+        const workoutChartCanvas = document.getElementById('workoutChart').getContext('2d');
+        const resetFilterButton = document.getElementById('resetFilter');
+
+        let workoutData = [];
+        let chartInstance;
+
+        function parseCSVData(csvString) {
+            PapaParse.parse(csvString, {
+                header: true,
+                dynamicTyping: true,
+                complete: function(results) {
+                    workoutData = results.data;
+                    populateActivityTypes();
+                    renderChart();
+                }
+            });
+        }
+
+        function populateActivityTypes() {
+            const activityTypes = ['All', ...new Set(workoutData.map(workout => workout.workoutActivityType))];
+            activityTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.text = type;
+                activityTypeSelect.appendChild(option);
+            });
+        }
+
+        function renderChart(filterActivityType = 'All') {
+            const filteredData = filterActivityType === 'All'
+                ? workoutData
+                : workoutData.filter(workout => workout.workoutActivityType === filterActivityType);
+
+            const chartLabels = filteredData.map(workout => workout.startDate.split(' ')[0]); // Use date part of startDate
+            const chartData = filteredData.map(workout => workout.duration);
+
+            if (chartInstance) {
+                chartInstance.destroy(); // Destroy existing chart before creating new one
+            }
+
+            chartInstance = new Chart(workoutChartCanvas, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Workout Duration (minutes)',
+                        data: chartData,
+                        borderColor: '#007BFF',
+                        borderWidth: 2,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Duration (minutes)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: `Workout Duration Over Time${filterActivityType !== 'All' ? ` (${filterActivityType})` : ''}`
+                        },
+                    }
+                }
+            });
+        }
+
+        activityTypeSelect.addEventListener('change', function() {
+            renderChart(this.value);
+        });
+
+        resetFilterButton.addEventListener('click', function() {
+            activityTypeSelect.value = 'All';
+            renderChart('All');
+        });
+
+        parseCSVData(csvData); // Initial parsing and chart rendering
+    </script>
+</body>
+</html>

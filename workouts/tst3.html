@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Workout Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #007bff;
+        }
+        .chart-container {
+            width: 80%;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        canvas {
+            max-height: 400px;
+        }
+        #loading {
+            text-align: center;
+            margin-top: 30px;
+            font-style: italic;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body>
+    <h1>Workout Data Dashboard</h1>
+
+    <div id="loading">Loading workout data...</div>
+
+    <div class="chart-container" id="durationByTypeChartContainer" style="display:none;">
+        <canvas id="durationByTypeChart"></canvas>
+    </div>
+
+    <div class="chart-container" id="durationByYearChartContainer" style="display:none;">
+        <canvas id="durationByYearChart"></canvas>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const csvFileUrl = 'workout.csv'; // Path to your CSV file
+            const loadingElement = document.getElementById('loading');
+            const durationByTypeChartContainer = document.getElementById('durationByTypeChartContainer');
+            const durationByYearChartContainer = document.getElementById('durationByYearChartContainer');
+
+            Papa.parse(csvFileUrl, {
+                download: true,
+                header: true,
+                complete: function(results) {
+                    loadingElement.style.display = 'none';
+                    if (results.errors.length > 0) {
+                        console.error("Error parsing CSV:", results.errors);
+                        loadingElement.textContent = 'Error loading workout data.';
+                        loadingElement.style.color = 'red';
+                        return;
+                    }
+
+                    const data = results.data;
+                    if (data.length === 0) {
+                        loadingElement.textContent = 'No workout data found in CSV.';
+                        return;
+                    }
+
+                    // Prepare data for Duration by Workout Type Chart
+                    const durationByType = {};
+                    data.forEach(row => {
+                        const type = row.workoutActivityType;
+                        const duration = parseFloat(row.duration);
+                        if (type && !isNaN(duration)) {
+                            durationByType[type] = (durationByType[type] || 0) + duration;
+                        }
+                    });
+                    const typeLabels = Object.keys(durationByType);
+                    const typeDurations = typeLabels.map(type => durationByType[type]);
+
+                    if (typeLabels.length > 0) {
+                        durationByTypeChartContainer.style.display = 'block';
+                        createBarChart('durationByTypeChart', typeLabels, typeDurations, 'Total Duration (min) by Workout Type', 'Workout Type', 'Duration (minutes)');
+                    }
+
+
+                    // Prepare data for Duration by Year Chart
+                    const durationByYear = {};
+                    data.forEach(row => {
+                        const year = row.Year;
+                        const duration = parseFloat(row.duration);
+                        if (year && !isNaN(duration)) {
+                            durationByYear[year] = (durationByYear[year] || 0) + duration;
+                        }
+                    });
+                    const yearLabels = Object.keys(durationByYear).sort();
+                    const yearDurations = yearLabels.map(year => durationByYear[year]);
+
+                    if (yearLabels.length > 0) {
+                        durationByYearChartContainer.style.display = 'block';
+                        createLineChart('durationByYearChart', yearLabels, yearDurations, 'Total Workout Duration (min) per Year', 'Year', 'Total Duration (minutes)');
+                    }
+
+
+                }
+            });
+
+            function createBarChart(canvasId, labels, data, title, labelX, labelY) {
+                const ctx = document.getElementById(canvasId).getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: labelY,
+                            data: data,
+                            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: labelY
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: labelX
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: title,
+                                font: {
+                                    size: 18
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function createLineChart(canvasId, labels, data, title, labelX, labelY) {
+                const ctx = document.getElementById(canvasId).getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: labelY,
+                            data: data,
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: labelY
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: labelX
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: title,
+                                font: {
+                                    size: 18
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
+content_copy
+download
+Use code with caution.
+Html

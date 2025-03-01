@@ -116,6 +116,41 @@
 
         Plotly.newPlot('chart', [heatmapTrace], layout);
     }
+
+    function createMonthlyDurationAnalysis(data) {
+        // Group by month and activity type
+        let monthlyData = {};
+        data.forEach(d => {
+            let monthYear = d.Date.toISOString().slice(0, 7);
+            if (!monthlyData[monthYear]) {
+                monthlyData[monthYear] = {};
+            }
+            if (!monthlyData[monthYear][d.workoutActivityType]) {
+                monthlyData[monthYear][d.workoutActivityType] = 0;
+            }
+            monthlyData[monthYear][d.workoutActivityType] += d.durationMinutes;
+        });
+
+        // Create stacked bar chart
+        let traces = Object.keys(monthlyData[Object.keys(monthlyData)[0]]).map(type => ({
+            name: type,
+            x: Object.keys(monthlyData),
+            y: Object.keys(monthlyData).map(month => monthlyData[month][type] || 0),
+            type: 'bar',
+            text: Object.keys(monthlyData).map(month => 
+                Math.round(monthlyData[month][type] || 0) + ' mins'
+            ),
+        }));
+
+        var layout = {
+            title: 'Monthly Activity Duration Breakdown',
+            barmode: 'stack',
+            xaxis: { title: 'Month' },
+            yaxis: { title: 'Duration (minutes)' }
+        };
+
+        Plotly.newPlot('chart', traces, layout);
+    }
   </script>
 </body>
 </html>

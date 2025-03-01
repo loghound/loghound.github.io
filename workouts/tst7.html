@@ -133,7 +133,7 @@
             if (!monthlyData[monthYear][d.workoutActivityType]) {
                 monthlyData[monthYear][d.workoutActivityType] = 0;
             }
-            monthlyData[monthYear][d.workoutActivityType] += d.durationMinutes;
+            monthlyData[monthYear][d.workoutActivityType] += d.duration;
         });
 
         // Create stacked bar chart

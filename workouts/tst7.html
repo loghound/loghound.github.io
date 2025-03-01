@@ -33,7 +33,7 @@
       // Assume the CSV contains at least two columns: Date and Exercise.
       // Convert the Date strings into JavaScript Date objects.
       data.forEach(function(d) {
-        d.Date = new Date(d.startDate);
+        d.Date = new Date(d.creationDate.split(' ').slice(0, 2).join('T'));
       });
 
       // Create a scatter trace where each point represents a workout.

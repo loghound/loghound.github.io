@@ -35,11 +35,12 @@
     // Load the CSV file dynamically
     d3.csv("workout.csv").then(function(data) {
         chartData = data;
-        // Log the data for debugging purposes
-        console.log("CSV Data:", data);
         
         data.forEach(function(d) {
-            d.Date = new Date(d.creationDate.split(' ').slice(0, 2).join(' '));
+            // Parse the startDate instead of creationDate
+            d.Date = new Date(d.startDate);
+            // Duration is already in minutes, no need to convert
+            d.durationMinutes = parseFloat(d.duration);
         });
 
         createScatterPlot(data);
@@ -70,18 +71,30 @@
             mode: 'markers',
             type: 'scatter',
             marker: {
-                size: 10,
+                // Make size proportional to duration
+                size: data.map(d => Math.sqrt(d.durationMinutes) * 3),
                 opacity: 0.7,
                 color: '#007bff'
             },
-            text: data.map(d => "Date: " + d.Date.toLocaleDateString() + "<br>Type: " + d.workoutActivityType),
+            text: data.map(d => 
+                `Date: ${d.Date.toLocaleDateString()}<br>` +
+                `Type: ${d.workoutActivityType}<br>` +
+                `Duration: ${Math.round(d.durationMinutes)} mins`
+            ),
             hoverinfo: 'text'
         };
 
         var layout = {
             title: 'Workout Types Over Time',
-            xaxis: { title: 'Date', type: 'date' },
-            yaxis: { title: 'Workout Type', automargin: true },
+            xaxis: { 
+                title: 'Date',
+                type: 'date',
+                tickformat: '%Y-%m-%d'
+            },
+            yaxis: { 
+                title: 'Workout Type',
+                automargin: true 
+            },
             hovermode: 'closest'
         };
 
@@ -96,12 +109,12 @@
         data.forEach(d => {
             let monthYear = d.Date.toISOString().slice(0, 7); // Format: YYYY-MM
             workoutCounts[monthYear] = workoutCounts[monthYear] || {};
-            workoutCounts[monthYear][d.workoutActivityType] = (workoutCounts[monthYear][d.workoutActivityType] || 0) + 1;
+            workoutCounts[monthYear][d.workoutActivityType] = (workoutCounts[monthYear][d.workoutActivityType] || 0) + d.durationMinutes;
         });
 
         let months = Object.keys(workoutCounts).sort();
         let z = workoutTypes.map(type => 
-            months.map(month => workoutCounts[month][type] || 0)
+            months.map(month => Math.round(workoutCounts[month][type] || 0))
         );
 
         var heatmapTrace = {
@@ -110,11 +123,12 @@
             y: workoutTypes,
             type: 'heatmap',
             colorscale: 'Viridis',
-            hoverongaps: false
+            hoverongaps: false,
+            hovertemplate: 'Date: %{x}<br>Type: %{y}<br>Minutes: %{z}<extra></extra>'
         };
 
         var layout = {
-            title: 'Workout Frequency Heatmap',
+            title: 'Workout Duration Heatmap (minutes)',
             xaxis: { title: 'Month' },
             yaxis: { title: 'Workout Type', automargin: true }
         };
@@ -133,16 +147,19 @@
             if (!monthlyData[monthYear][d.workoutActivityType]) {
                 monthlyData[monthYear][d.workoutActivityType] = 0;
             }
-            monthlyData[monthYear][d.workoutActivityType] += d.duration;
+            monthlyData[monthYear][d.workoutActivityType] += d.durationMinutes;
         });
 
         // Create stacked bar chart
-        let traces = Object.keys(monthlyData[Object.keys(monthlyData)[0]]).map(type => ({
+        let workoutTypes = [...new Set(data.map(d => d.workoutActivityType))];
+        let traces = workoutTypes.map(type => ({
             name: type,
-            x: Object.keys(monthlyData),
-            y: Object.keys(monthlyData).map(month => monthlyData[month][type] || 0),
+            x: Object.keys(monthlyData).sort(),
+            y: Object.keys(monthlyData).sort().map(month => 
+                Math.round(monthlyData[month][type] || 0)
+            ),
             type: 'bar',
-            text: Object.keys(monthlyData).map(month => 
+            text: Object.keys(monthlyData).sort().map(month => 
                 Math.round(monthlyData[month][type] || 0) + ' mins'
             ),
         }));
@@ -151,7 +168,13 @@
             title: 'Monthly Activity Duration Breakdown',
             barmode: 'stack',
             xaxis: { title: 'Month' },
-            yaxis: { title: 'Duration (minutes)' }
+            yaxis: { title: 'Duration (minutes)' },
+            showlegend: true,
+            legend: {
+                x: 1,
+                xanchor: 'right',
+                y: 1
+            }
         };
 
         Plotly.newPlot('chart', traces, layout);
